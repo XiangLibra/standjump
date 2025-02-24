@@ -21,3 +21,11 @@ pip install requirements.txt
 ```bash
 flask run --host 0.0.0.0
 ```
+
+## 開啟自己的https 
+
+
+```
+ngrok http 5000
+```
+最後開啟對應給的網址就開看完成了
