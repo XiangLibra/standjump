@@ -1,0 +1,451 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>立定跳遠分析系統</title>
+    <style>
+        body {
+            font-family: "微軟正黑體", Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .upload-section {
+            border: 2px dashed #ccc;
+            padding: 20px;
+            text-align: center;
+            margin: 20px 0;
+        }
+        .result-section {
+            margin-top: 20px;
+            display: none;
+        }
+        .loading {
+            display: none;
+            font-weight: bold;
+            color: #666;
+        }
+        video {
+            margin-top: 10px;
+            width: 100%;
+        }
+        .history-section {
+            margin-top: 30px;
+            display: none;
+            border-top: 1px solid #ccc;
+            padding-top: 20px;
+        }
+        .folder-list {
+            margin-top: 10px;
+            padding-left: 20px;
+        }
+        .file-list {
+            margin-left: 20px;
+            margin-bottom: 10px;
+        }
+        .file-item {
+            margin-bottom: 5px;
+        }
+        .red-button {
+            color: #fff;
+            background: #d9534f;
+            border: none;
+            padding: 4px 8px;
+            cursor: pointer;
+        }
+        .red-button:hover {
+            opacity: 0.8;
+        }
+        .blue-button {
+            color: #fff;
+            background: #0275d8;
+            border: none;
+            padding: 4px 8px;
+            cursor: pointer;
+        }
+        .blue-button:hover {
+            opacity: 0.8;
+        }
+    </style>
+</head>
+<body>
+    <h1>立定跳遠分析系統</h1>
+
+    <div class="upload-section">
+        <h2>上傳影片</h2>
+        <input type="file" id="videoInput" accept="video/*">
+        <button onclick="uploadVideo()">開始分析</button>
+        <!-- 「歷史紀錄」按鈕 -->
+        <button onclick="showHistory()">歷史紀錄</button>
+        <!-- 「即時錄影」按鈕 -->
+        <button onclick="toggleRecordingArea()">即時錄影</button>
+    </div>
+
+    <!-- 即時錄影區塊 -->
+    <div id="recordingSection" style="display:none; text-align:center; margin-top:20px;">
+        <h2>即時錄影</h2>
+        <video id="liveVideo" autoplay muted playsinline style="width: 100%; max-width: 600px;"></video>
+        <div style="margin-top:10px;">
+            <button id="startRecordingBtn" onclick="startRecording()">開始錄影</button>
+            <button id="stopRecordingBtn" onclick="stopRecording()" disabled>停止錄影</button>
+            <button id="switchCameraBtn" onclick="switchCamera()">切換鏡頭</button> <!-- 切換鏡頭按鈕 -->
+        </div>
+    </div>
+
+    <div class="loading" id="loading">
+        <p>分析處理中，請稍候...</p>
+    </div>
+
+    <div class="result-section" id="resultSection">
+        <h2>分析結果</h2>
+        <p>預測距離：<span id="predictedDistance"></span> 公分</p>
+
+        <div class="download-links" style="margin-top:10px;">
+            <button id="downloadVideoBtn">下載影片</button>
+            <button id="downloadCSVBtn">下載CSV</button>
+        </div>
+    </div>
+
+    <!-- 歷史紀錄區塊 -->
+    <div class="history-section" id="historySection">
+        <h2>歷史紀錄</h2>
+        <!-- 新增「刪除全部」按鈕 -->
+        <button id="deleteAllBtn" class="red-button" onclick="deleteAllFolders()" style="margin-bottom:10px;">
+            刪除全部
+        </button>
+        <div id="foldersContainer" class="folder-list">
+            <!-- 這裡會動態載入歷史資料夾清單 -->
+        </div>
+    </div>
+
+    <script>
+        let currentProcessId = null;
+
+        // =============== 上傳影片並分析 ===============
+        async function uploadVideo() {
+            const videoInput = document.getElementById('videoInput');
+            const file = videoInput.files[0];
+            if (!file) {
+                alert('請先選擇影片檔案');
+                return;
+            }
+
+            const loadingDiv = document.getElementById('loading');
+            loadingDiv.style.display = 'block';
+            document.getElementById('resultSection').style.display = 'none';
+
+            const formData = new FormData();
+            formData.append('video', file);
+
+            try {
+                const response = await fetch('/api/analyze', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+                loadingDiv.style.display = 'none';
+
+                console.log("Received result:", result);
+
+                if (result.status === "success") {
+                    // 顯示結果
+                    document.getElementById('resultSection').style.display = 'block';
+                    document.getElementById('predictedDistance').textContent = result.predicted_distance;
+
+                    // 影片與 CSV 使用後端回傳的檔名
+                    const videourl = "/result/" + result.process_id + "/" + result.video_filename;
+                    const csvurl = "/result/" + result.process_id + "/" + result.csv_filename;
+
+                    // 設置下載連結
+                    document.getElementById('downloadVideoBtn').onclick = function() {
+                        window.open(videourl, '_blank');
+                    };
+                    document.getElementById('downloadCSVBtn').onclick = function() {
+                        window.open(csvurl, '_blank');
+                    };
+
+                    currentProcessId = result.process_id;
+                } else {
+                    alert('處理失敗：' + (result.message || '不明原因'));
+                }
+            } catch (error) {
+                loadingDiv.style.display = 'none';
+                alert('處理過程發生錯誤: ' + error.message);
+                console.error('Error:', error);
+            }
+        }
+
+        // =============== 即時錄影功能 ===============
+        let mediaRecorder;
+let recordedChunks = [];
+let stream = null;
+let currentFacingMode = "environment";  // 預設為後置鏡頭
+
+// 啟用/停止錄影區塊
+function toggleRecordingArea() {
+    const recSec = document.getElementById('recordingSection');
+    if (recSec.style.display === 'none' || recSec.style.display === '') {
+        recSec.style.display = 'block';
+        startCamera();
+    } else {
+        recSec.style.display = 'none';
+        stopCamera();
+    }
+}
+
+// 啟動相機，指定前後鏡頭
+async function startCamera() {
+    try {
+        if (stream) stopCamera();  // 先停止現有流
+
+        const constraints = {
+            video: { facingMode: currentFacingMode },  // 根據 currentFacingMode 選擇鏡頭
+            audio: true
+        };
+
+        stream = await navigator.mediaDevices.getUserMedia(constraints);
+        const videoEl = document.getElementById('liveVideo');
+        videoEl.srcObject = stream;
+    } catch (err) {
+        console.error('無法存取攝影機:', err);
+        alert('無法存取攝影機：' + err.message);
+    }
+}
+
+// 停止攝影機
+function stopCamera() {
+    if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+        stream = null;
+    }
+}
+
+// 切換前後鏡頭
+function switchCamera() {
+    currentFacingMode = (currentFacingMode === "user") ? "environment" : "user";  // 切換
+    startCamera();  // 重新啟動攝影機
+}
+
+// 開始錄影
+function startRecording() {
+    if (!stream) {
+        alert('尚未開啟攝影機');
+        return;
+    }
+    recordedChunks = [];
+    mediaRecorder = new MediaRecorder(stream, { mimeType: 'video/webm; codecs=vp9' });
+
+    mediaRecorder.ondataavailable = function(event) {
+        if (event.data.size > 0) {
+            recordedChunks.push(event.data);
+        }
+    };
+
+    mediaRecorder.onstop = function() {
+        uploadRecordedVideo();
+    };
+
+    mediaRecorder.start();
+    document.getElementById('startRecordingBtn').disabled = true;
+    document.getElementById('stopRecordingBtn').disabled = false;
+    console.log('開始錄影');
+}
+
+// 停止錄影
+function stopRecording() {
+    if (!mediaRecorder) return;
+    mediaRecorder.stop();
+    document.getElementById('startRecordingBtn').disabled = false;
+    document.getElementById('stopRecordingBtn').disabled = true;
+    console.log('停止錄影');
+}
+
+// 上傳錄製影片
+async function uploadRecordedVideo() {
+    const blob = new Blob(recordedChunks, { type: 'video/webm' });
+    const file = new File([blob], 'recorded_video.webm', { type: 'video/webm' });
+
+    const loadingDiv = document.getElementById('loading');
+    loadingDiv.style.display = 'block';
+    document.getElementById('resultSection').style.display = 'none';
+
+    const formData = new FormData();
+    formData.append('video', file);
+
+    try {
+        const response = await fetch('/api/analyze', {
+            method: 'POST',
+            body: formData
+        });
+
+        const result = await response.json();
+        loadingDiv.style.display = 'none';
+
+        if (result.status === "success") {
+            document.getElementById('resultSection').style.display = 'block';
+            document.getElementById('predictedDistance').textContent = result.predicted_distance;
+
+            const videourl = "/result/" + result.process_id + "/" + result.video_filename;
+            const csvurl = "/result/" + result.process_id + "/" + result.csv_filename;
+
+            document.getElementById('downloadVideoBtn').onclick = () => window.open(videourl, '_blank');
+            document.getElementById('downloadCSVBtn').onclick = () => window.open(csvurl, '_blank');
+
+            currentProcessId = result.process_id;
+        } else {
+            alert('處理失敗：' + (result.message || '不明原因'));
+        }
+    } catch (error) {
+        loadingDiv.style.display = 'none';
+        alert('處理過程發生錯誤: ' + error.message);
+        console.error('Error:', error);
+    }
+}
+
+        // =============== 歷史紀錄相關 ===============
+        // 顯示或隱藏歷史紀錄區塊，並載入所有資料夾清單
+        async function showHistory() {
+            const historySection = document.getElementById('historySection');
+            // 切換顯示
+            if (historySection.style.display === 'none' || historySection.style.display === '') {
+                historySection.style.display = 'block';
+                await loadHistoryFolders();  // 載入歷史資料夾
+            } else {
+                historySection.style.display = 'none';
+            }
+        }
+
+        async function loadHistoryFolders() {
+            try {
+                const res = await fetch('/api/history', { method: 'GET' });
+                const data = await res.json();
+                console.log('歷史資料夾：', data);
+
+                const foldersContainer = document.getElementById('foldersContainer');
+                foldersContainer.innerHTML = '';  // 清空
+
+                if (!data.folders || data.folders.length === 0) {
+                    foldersContainer.innerHTML = '<p>目前沒有任何歷史資料。</p>';
+                    return;
+                }
+
+                // 依序列出每個 process_id 資料夾
+                data.folders.forEach(folder => {
+                    const folderDiv = document.createElement('div');
+                    folderDiv.style.marginBottom = '10px';
+
+                    const folderTitle = document.createElement('h3');
+                    folderTitle.textContent = `Process ID: ${folder.process_id}`;
+                    folderDiv.appendChild(folderTitle);
+
+                    // [刪除整個資料夾] 按鈕
+                    const deleteFolderBtn = document.createElement('button');
+                    deleteFolderBtn.textContent = '刪除資料夾';
+                    deleteFolderBtn.className = 'red-button';
+                    deleteFolderBtn.onclick = async () => {
+                        if (!confirm(`確定要刪除資料夾 ${folder.process_id} 嗎？`)) return;
+                        await deleteFolder(folder.process_id);
+                        await loadHistoryFolders(); // 重新載入
+                    };
+                    folderDiv.appendChild(deleteFolderBtn);
+
+                    // 列出該資料夾內的所有檔案
+                    const fileList = document.createElement('div');
+                    fileList.className = 'file-list';
+
+                    if (folder.files && folder.files.length > 0) {
+                        folder.files.forEach(file => {
+                            const fileItem = document.createElement('div');
+                            fileItem.className = 'file-item';
+
+                            // 檔名
+                            const fileNameSpan = document.createElement('span');
+                            fileNameSpan.textContent = file + ' ';
+
+                            // 下載按鈕
+                            const downloadBtn = document.createElement('button');
+                            downloadBtn.textContent = '下載';
+                            downloadBtn.className = 'blue-button';
+                            downloadBtn.onclick = () => {
+                                const downloadUrl = `/result/${folder.process_id}/${file}`;
+                                window.open(downloadUrl, '_blank');
+                            };
+
+                            // 刪除按鈕
+                            const deleteBtn = document.createElement('button');
+                            deleteBtn.textContent = '刪除';
+                            deleteBtn.className = 'red-button';
+                            deleteBtn.style.marginLeft = '5px';
+                            deleteBtn.onclick = async () => {
+                                if (!confirm(`確定要刪除檔案 ${file} 嗎？`)) return;
+                                await deleteFile(folder.process_id, file);
+                                await loadHistoryFolders(); // 重新載入
+                            };
+
+                            fileItem.appendChild(fileNameSpan);
+                            fileItem.appendChild(downloadBtn);
+                            fileItem.appendChild(deleteBtn);
+                            fileList.appendChild(fileItem);
+                        });
+                    } else {
+                        fileList.innerHTML = '<p>無檔案</p>';
+                    }
+
+                    folderDiv.appendChild(fileList);
+                    foldersContainer.appendChild(folderDiv);
+                });
+
+            } catch (err) {
+                console.error('載入歷史資料失敗', err);
+                alert('載入歷史資料失敗：' + err.message);
+            }
+        }
+
+        // 一鍵「刪除全部」
+        async function deleteAllFolders() {
+            if (!confirm('確定要刪除所有歷史資料夾及其檔案嗎？')) return;
+            try {
+                const res = await fetch('/api/delete_all', { method: 'DELETE' });
+                const result = await res.json();
+                if (result.status === 'success') {
+                    alert('全部資料已刪除');
+                    await loadHistoryFolders();
+                } else {
+                    alert('刪除失敗：' + (result.message || '不明原因'));
+                }
+            } catch (err) {
+                alert('刪除全部失敗：' + err.message);
+            }
+        }
+
+        async function deleteFolder(process_id) {
+            try {
+                const res = await fetch(`/api/delete_folder/${process_id}`, { method: 'DELETE' });
+                const result = await res.json();
+                if (result.status !== 'success') {
+                    alert('刪除資料夾失敗：' + (result.message || '不明原因'));
+                }
+            } catch (err) {
+                alert('刪除資料夾失敗：' + err.message);
+            }
+        }
+
+        async function deleteFile(process_id, filename) {
+            try {
+                const res = await fetch('/api/delete_file', {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ process_id, filename })
+                });
+                const result = await res.json();
+                if (result.status !== 'success') {
+                    alert('刪除檔案失敗：' + (result.message || '不明原因'));
+                }
+            } catch (err) {
+                alert('刪除檔案失敗：' + err.message);
+            }
+        }
+    </script>
+</body>
+</html>
