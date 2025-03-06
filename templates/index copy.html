@@ -73,15 +73,6 @@
 
     <div class="upload-section">
         <h2>上傳影片</h2>
-
-        <!-- 新增身高、體重輸入欄位 -->
-        <div style="margin-bottom: 10px;">
-            <label for="heightInput">身高 (cm): </label>
-            <input type="number" id="heightInput" placeholder="若不填預設148">
-            <label for="weightInput" style="margin-left:15px;">體重 (kg): </label>
-            <input type="number" id="weightInput" placeholder="若不填預設38">
-        </div>
-
         <input type="file" id="videoInput" accept="video/*">
         <button onclick="uploadVideo()">開始分析</button>
         <!-- 「歷史紀錄」按鈕 -->
@@ -138,28 +129,12 @@
                 return;
             }
 
-            // 讀取身高、體重欄位
-            const heightInput = document.getElementById('heightInput');
-            const weightInput = document.getElementById('weightInput');
-
-            // 若未填，就用預設值
-            let heightValue = heightInput.value.trim();
-            if (!heightValue) {
-                heightValue = "148";  // 預設 148
-            }
-            let weightValue = weightInput.value.trim();
-            if (!weightValue) {
-                weightValue = "38";   // 預設 38
-            }
-
             const loadingDiv = document.getElementById('loading');
             loadingDiv.style.display = 'block';
             document.getElementById('resultSection').style.display = 'none';
 
             const formData = new FormData();
             formData.append('video', file);
-            formData.append('height', heightValue);
-            formData.append('weight', weightValue);
 
             try {
                 const response = await fetch('/api/analyze', {
@@ -273,28 +248,12 @@
             const blob = new Blob(recordedChunks, { type: 'video/webm' });
             const file = new File([blob], 'recorded_video.webm', { type: 'video/webm' });
 
-            // 一樣讀取身高、體重
-            const heightInput = document.getElementById('heightInput');
-            const weightInput = document.getElementById('weightInput');
-
-            let heightValue = heightInput.value.trim();
-            if (!heightValue) {
-                heightValue = "148";
-            }
-            let weightValue = weightInput.value.trim();
-            if (!weightValue) {
-                weightValue = "38";
-            }
-
             const loadingDiv = document.getElementById('loading');
             loadingDiv.style.display = 'block';
             document.getElementById('resultSection').style.display = 'none';
 
             const formData = new FormData();
             formData.append('video', file);
-            // 同樣要傳遞身高、體重
-            formData.append('height', heightValue);
-            formData.append('weight', weightValue);
 
             try {
                 const response = await fetch('/api/analyze', {
