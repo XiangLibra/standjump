@@ -446,6 +446,9 @@
         //         alert('載入歷史資料失敗：' + err.message);
         //     }
         // }
+
+
+        
         async function loadHistoryFolders() {
     try {
         const res = await fetch('/api/history', { method: 'GET' });
@@ -495,42 +498,55 @@
             fileList.className = 'file-list';
 
             if (folder.files && folder.files.length > 0) {
-                folder.files.forEach(file => {
-                    const fileItem = document.createElement('div');
-                    fileItem.className = 'file-item';
+                    folder.files.forEach(file => {
+                        const fileItem = document.createElement('div');
+                        fileItem.className = 'file-item';
 
-                    // 檔名
-                    const fileNameSpan = document.createElement('span');
-                    fileNameSpan.textContent = file + ' ';
+                        // 檔名
+                        const fileNameSpan = document.createElement('span');
+                        fileNameSpan.textContent = file + ' ';
+                        fileItem.appendChild(fileNameSpan);
 
-                    // 下載按鈕
-                    const downloadBtn = document.createElement('button');
-                    downloadBtn.textContent = '下載';
-                    downloadBtn.className = 'blue-button';
-                    downloadBtn.onclick = () => {
-                        const downloadUrl = `/result/${folder.process_id}/${file}`;
-                        window.open(downloadUrl, '_blank');
-                    };
+                        // ✅ 如果是 poses_images_out，**只顯示 ZIP 下載按鈕**
+                        if (file === "poses_images_out") {
+                            const zipDownloadBtn = document.createElement('button');
+                            zipDownloadBtn.textContent = '下載 ZIP';
+                            zipDownloadBtn.className = 'blue-button';
+                            zipDownloadBtn.onclick = () => {
+                                const zipDownloadUrl = `/result/${folder.process_id}/poses_images_out.zip`;
+                                window.open(zipDownloadUrl, '_blank');
+                            };
+                            fileItem.appendChild(zipDownloadBtn);
+                        } else {
+                            // ✅ 其他一般檔案則顯示「下載」按鈕
+                            const downloadBtn = document.createElement('button');
+                            downloadBtn.textContent = '下載';
+                            downloadBtn.className = 'blue-button';
+                            downloadBtn.onclick = () => {
+                                const downloadUrl = `/result/${folder.process_id}/${file}`;
+                                window.open(downloadUrl, '_blank');
+                            };
+                            fileItem.appendChild(downloadBtn);
+                        }
 
-                    // 刪除按鈕
-                    const deleteBtn = document.createElement('button');
-                    deleteBtn.textContent = '刪除';
-                    deleteBtn.className = 'red-button';
-                    deleteBtn.style.marginLeft = '5px';
-                    deleteBtn.onclick = async () => {
-                        if (!confirm(`確定要刪除檔案 ${file} 嗎？`)) return;
-                        await deleteFile(folder.process_id, file);
-                        await loadHistoryFolders(); // 重新載入
-                    };
+                        // 刪除按鈕
+                        const deleteBtn = document.createElement('button');
+                        deleteBtn.textContent = '刪除';
+                        deleteBtn.className = 'red-button';
+                        deleteBtn.style.marginLeft = '5px';
+                        deleteBtn.onclick = async () => {
+                            if (!confirm(`確定要刪除檔案 ${file} 嗎？`)) return;
+                            await deleteFile(folder.process_id, file);
+                            await loadHistoryFolders(); // 重新載入
+                        };
+                        fileItem.appendChild(deleteBtn);
 
-                    fileItem.appendChild(fileNameSpan);
-                    fileItem.appendChild(downloadBtn);
-                    fileItem.appendChild(deleteBtn);
-                    fileList.appendChild(fileItem);
-                });
-            } else {
-                fileList.innerHTML = '<p>無檔案</p>';
-            }
+                        fileList.appendChild(fileItem);
+                    });
+                } else {
+                    fileList.innerHTML = '<p>無檔案</p>';
+                }
+
 
             folderDiv.appendChild(fileList);
             foldersContainer.appendChild(folderDiv);

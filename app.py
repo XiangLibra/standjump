@@ -1,5 +1,5 @@
 # app.py
-from flask import Flask, request, jsonify, send_from_directory, render_template, abort
+from flask import Flask, request, jsonify, send_from_directory, render_template, abort,send_file
 import os
 import shutil
 import uuid
@@ -238,6 +238,35 @@ def download_result(process_id, filename):
         return abort(404, description="檔案不存在")
     return send_from_directory(file_path.parent, file_path.name, as_attachment=True)
 
+@app.route("/result/<process_id>/poses_images_out.zip", methods=["GET"])
+def download_poses_zip(process_id):
+    """
+    壓縮並下載 poses_images_out 資料夾，下載完成後刪除 ZIP。
+    """
+    poses_dir = os.path.join(RESULTS_DIR, process_id, "poses_images_out")
+    zip_path = os.path.join(RESULTS_DIR, process_id, "poses_images_out.zip")
+
+    # ✅ 確保 poses_images_out 資料夾存在且不為空
+    if not os.path.exists(poses_dir) or not os.listdir(poses_dir):
+        return abort(404, description=f"poses_images_out 資料夾不存在或為空: {poses_dir}")
+
+    # ✅ 生成 ZIP
+    try:
+        shutil.make_archive(zip_path.replace(".zip", ""), 'zip', poses_dir)
+    except Exception as e:
+        return abort(500, description=f"ZIP 壓縮失敗: {str(e)}")
+
+    # ✅ 檢查 ZIP 是否成功生成
+    if not os.path.exists(zip_path):
+        return abort(500, description="ZIP 檔案未成功生成")
+
+    # ✅ 發送 ZIP，**下載完成後刪除 ZIP 檔案**
+    try:
+        response = send_file(zip_path, as_attachment=True, download_name="poses_images_out.zip")
+        os.remove(zip_path)  # ⬅ **刪除 ZIP 檔案**
+        return response
+    except Exception as e:
+        return abort(500, description=f"無法傳送 ZIP: {str(e)}")
 
 if __name__ == "__main__":
     app.run(host="127.0.0.1", port=5000, debug=True)
