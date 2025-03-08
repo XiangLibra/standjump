@@ -361,91 +361,187 @@
             }
         }
 
+        // async function loadHistoryFolders() {
+        //     try {
+        //         const res = await fetch('/api/history', { method: 'GET' });
+        //         const data = await res.json();
+        //         console.log('歷史資料夾：', data);
+
+        //         const foldersContainer = document.getElementById('foldersContainer');
+        //         foldersContainer.innerHTML = '';  // 清空
+
+        //         if (!data.folders || data.folders.length === 0) {
+        //             foldersContainer.innerHTML = '<p>目前沒有任何歷史資料。</p>';
+        //             return;
+        //         }
+
+        //         // 依序列出每個 process_id 資料夾
+        //         data.folders.forEach(folder => {
+        //             const folderDiv = document.createElement('div');
+        //             folderDiv.style.marginBottom = '10px';
+
+        //             const folderTitle = document.createElement('h3');
+        //             folderTitle.textContent = `Process ID: ${folder.process_id}`;
+        //             folderDiv.appendChild(folderTitle);
+
+        //             // [刪除整個資料夾] 按鈕
+        //             const deleteFolderBtn = document.createElement('button');
+        //             deleteFolderBtn.textContent = '刪除資料夾';
+        //             deleteFolderBtn.className = 'red-button';
+        //             deleteFolderBtn.onclick = async () => {
+        //                 if (!confirm(`確定要刪除資料夾 ${folder.process_id} 嗎？`)) return;
+        //                 await deleteFolder(folder.process_id);
+        //                 await loadHistoryFolders(); // 重新載入
+        //             };
+        //             folderDiv.appendChild(deleteFolderBtn);
+
+        //             // 列出該資料夾內的所有檔案
+        //             const fileList = document.createElement('div');
+        //             fileList.className = 'file-list';
+
+        //             if (folder.files && folder.files.length > 0) {
+        //                 folder.files.forEach(file => {
+        //                     const fileItem = document.createElement('div');
+        //                     fileItem.className = 'file-item';
+
+        //                     // 檔名
+        //                     const fileNameSpan = document.createElement('span');
+        //                     fileNameSpan.textContent = file + ' ';
+
+        //                     // 下載按鈕
+        //                     const downloadBtn = document.createElement('button');
+        //                     downloadBtn.textContent = '下載';
+        //                     downloadBtn.className = 'blue-button';
+        //                     downloadBtn.onclick = () => {
+        //                         const downloadUrl = `/result/${folder.process_id}/${file}`;
+        //                         window.open(downloadUrl, '_blank');
+        //                     };
+
+        //                     // 刪除按鈕
+        //                     const deleteBtn = document.createElement('button');
+        //                     deleteBtn.textContent = '刪除';
+        //                     deleteBtn.className = 'red-button';
+        //                     deleteBtn.style.marginLeft = '5px';
+        //                     deleteBtn.onclick = async () => {
+        //                         if (!confirm(`確定要刪除檔案 ${file} 嗎？`)) return;
+        //                         await deleteFile(folder.process_id, file);
+        //                         await loadHistoryFolders(); // 重新載入
+        //                     };
+
+        //                     fileItem.appendChild(fileNameSpan);
+        //                     fileItem.appendChild(downloadBtn);
+        //                     fileItem.appendChild(deleteBtn);
+        //                     fileList.appendChild(fileItem);
+        //                 });
+        //             } else {
+        //                 fileList.innerHTML = '<p>無檔案</p>';
+        //             }
+
+        //             folderDiv.appendChild(fileList);
+        //             foldersContainer.appendChild(folderDiv);
+        //         });
+
+        //     } catch (err) {
+        //         console.error('載入歷史資料失敗', err);
+        //         alert('載入歷史資料失敗：' + err.message);
+        //     }
+        // }
         async function loadHistoryFolders() {
-            try {
-                const res = await fetch('/api/history', { method: 'GET' });
-                const data = await res.json();
-                console.log('歷史資料夾：', data);
+    try {
+        const res = await fetch('/api/history', { method: 'GET' });
+        const data = await res.json();
+        console.log('歷史資料夾：', data);
 
-                const foldersContainer = document.getElementById('foldersContainer');
-                foldersContainer.innerHTML = '';  // 清空
+        const foldersContainer = document.getElementById('foldersContainer');
+        foldersContainer.innerHTML = '';  // 清空
 
-                if (!data.folders || data.folders.length === 0) {
-                    foldersContainer.innerHTML = '<p>目前沒有任何歷史資料。</p>';
-                    return;
-                }
+        if (!data.folders || data.folders.length === 0) {
+            foldersContainer.innerHTML = '<p>目前沒有任何歷史資料。</p>';
+            return;
+        }
 
-                // 依序列出每個 process_id 資料夾
-                data.folders.forEach(folder => {
-                    const folderDiv = document.createElement('div');
-                    folderDiv.style.marginBottom = '10px';
+        // ✅ 按照 timestamp 進行排序（最近的在最上面）
+        data.folders.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
-                    const folderTitle = document.createElement('h3');
-                    folderTitle.textContent = `Process ID: ${folder.process_id}`;
-                    folderDiv.appendChild(folderTitle);
+        // 依序列出每個 process_id 資料夾
+        data.folders.forEach(folder => {
+            const folderDiv = document.createElement('div');
+            folderDiv.style.marginBottom = '10px';
 
-                    // [刪除整個資料夾] 按鈕
-                    const deleteFolderBtn = document.createElement('button');
-                    deleteFolderBtn.textContent = '刪除資料夾';
-                    deleteFolderBtn.className = 'red-button';
-                    deleteFolderBtn.onclick = async () => {
-                        if (!confirm(`確定要刪除資料夾 ${folder.process_id} 嗎？`)) return;
-                        await deleteFolder(folder.process_id);
+            // 顯示時間
+            const timeLabel = document.createElement('p');
+            timeLabel.textContent = `時間: ${new Date(folder.timestamp).toLocaleString()}`;
+            timeLabel.style.fontSize = "14px";
+            timeLabel.style.color = "#666";
+
+            const folderTitle = document.createElement('h3');
+            folderTitle.textContent = `Process ID: ${folder.process_id}`;
+            folderDiv.appendChild(folderTitle);
+            folderDiv.appendChild(timeLabel); // 加入時間標籤
+
+            // [刪除整個資料夾] 按鈕
+            const deleteFolderBtn = document.createElement('button');
+            deleteFolderBtn.textContent = '刪除資料夾';
+            deleteFolderBtn.className = 'red-button';
+            deleteFolderBtn.onclick = async () => {
+                if (!confirm(`確定要刪除資料夾 ${folder.process_id} 嗎？`)) return;
+                await deleteFolder(folder.process_id);
+                await loadHistoryFolders(); // 重新載入
+            };
+            folderDiv.appendChild(deleteFolderBtn);
+
+            // 列出該資料夾內的所有檔案
+            const fileList = document.createElement('div');
+            fileList.className = 'file-list';
+
+            if (folder.files && folder.files.length > 0) {
+                folder.files.forEach(file => {
+                    const fileItem = document.createElement('div');
+                    fileItem.className = 'file-item';
+
+                    // 檔名
+                    const fileNameSpan = document.createElement('span');
+                    fileNameSpan.textContent = file + ' ';
+
+                    // 下載按鈕
+                    const downloadBtn = document.createElement('button');
+                    downloadBtn.textContent = '下載';
+                    downloadBtn.className = 'blue-button';
+                    downloadBtn.onclick = () => {
+                        const downloadUrl = `/result/${folder.process_id}/${file}`;
+                        window.open(downloadUrl, '_blank');
+                    };
+
+                    // 刪除按鈕
+                    const deleteBtn = document.createElement('button');
+                    deleteBtn.textContent = '刪除';
+                    deleteBtn.className = 'red-button';
+                    deleteBtn.style.marginLeft = '5px';
+                    deleteBtn.onclick = async () => {
+                        if (!confirm(`確定要刪除檔案 ${file} 嗎？`)) return;
+                        await deleteFile(folder.process_id, file);
                         await loadHistoryFolders(); // 重新載入
                     };
-                    folderDiv.appendChild(deleteFolderBtn);
 
-                    // 列出該資料夾內的所有檔案
-                    const fileList = document.createElement('div');
-                    fileList.className = 'file-list';
-
-                    if (folder.files && folder.files.length > 0) {
-                        folder.files.forEach(file => {
-                            const fileItem = document.createElement('div');
-                            fileItem.className = 'file-item';
-
-                            // 檔名
-                            const fileNameSpan = document.createElement('span');
-                            fileNameSpan.textContent = file + ' ';
-
-                            // 下載按鈕
-                            const downloadBtn = document.createElement('button');
-                            downloadBtn.textContent = '下載';
-                            downloadBtn.className = 'blue-button';
-                            downloadBtn.onclick = () => {
-                                const downloadUrl = `/result/${folder.process_id}/${file}`;
-                                window.open(downloadUrl, '_blank');
-                            };
-
-                            // 刪除按鈕
-                            const deleteBtn = document.createElement('button');
-                            deleteBtn.textContent = '刪除';
-                            deleteBtn.className = 'red-button';
-                            deleteBtn.style.marginLeft = '5px';
-                            deleteBtn.onclick = async () => {
-                                if (!confirm(`確定要刪除檔案 ${file} 嗎？`)) return;
-                                await deleteFile(folder.process_id, file);
-                                await loadHistoryFolders(); // 重新載入
-                            };
-
-                            fileItem.appendChild(fileNameSpan);
-                            fileItem.appendChild(downloadBtn);
-                            fileItem.appendChild(deleteBtn);
-                            fileList.appendChild(fileItem);
-                        });
-                    } else {
-                        fileList.innerHTML = '<p>無檔案</p>';
-                    }
-
-                    folderDiv.appendChild(fileList);
-                    foldersContainer.appendChild(folderDiv);
+                    fileItem.appendChild(fileNameSpan);
+                    fileItem.appendChild(downloadBtn);
+                    fileItem.appendChild(deleteBtn);
+                    fileList.appendChild(fileItem);
                 });
-
-            } catch (err) {
-                console.error('載入歷史資料失敗', err);
-                alert('載入歷史資料失敗：' + err.message);
+            } else {
+                fileList.innerHTML = '<p>無檔案</p>';
             }
-        }
+
+            folderDiv.appendChild(fileList);
+            foldersContainer.appendChild(folderDiv);
+        });
+
+    } catch (err) {
+        console.error('載入歷史資料失敗', err);
+        alert('載入歷史資料失敗：' + err.message);
+    }
+}
+
 
         // 一鍵「刪除全部」
         async function deleteAllFolders() {

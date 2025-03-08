@@ -8,6 +8,7 @@ import cv2
 import pandas as pd
 import joblib
 from flask import Response
+import time
 
 # 匯入我們在 main.py 定義的處理函式
 from main import process_video_and_predict
@@ -153,19 +154,41 @@ def analyze_video():
 # 其餘歷史紀錄、刪除檔案等路由...
 # (省略，您可依原本程式保留)
 
+# @app.route("/api/history", methods=["GET"])
+# def get_history():
+#     if not RESULTS_DIR.exists():
+#         return jsonify({"folders": []})
+#     folders_info = []
+#     for folder in RESULTS_DIR.iterdir():
+#         if folder.is_dir():
+#             pid = folder.name
+#             files = [f.name for f in folder.iterdir() if f.is_file()]
+#             folders_info.append({
+#                 "process_id": pid,
+#                 "files": files
+#             })
+#     return jsonify({"folders": folders_info})
+
 @app.route("/api/history", methods=["GET"])
 def get_history():
-    if not RESULTS_DIR.exists():
+    if not os.path.exists(RESULTS_DIR):
         return jsonify({"folders": []})
+
     folders_info = []
-    for folder in RESULTS_DIR.iterdir():
-        if folder.is_dir():
-            pid = folder.name
-            files = [f.name for f in folder.iterdir() if f.is_file()]
+    for folder_name in os.listdir(RESULTS_DIR):
+        folder_path = os.path.join(RESULTS_DIR, folder_name)
+        if os.path.isdir(folder_path):
+            files = os.listdir(folder_path)
+
+            # 取得資料夾最後修改時間
+            timestamp = time.strftime('%Y-%m-%dT%H:%M:%S', time.localtime(os.path.getmtime(folder_path)))
+
             folders_info.append({
-                "process_id": pid,
-                "files": files
+                "process_id": folder_name,
+                "files": files,
+                "timestamp": timestamp
             })
+
     return jsonify({"folders": folders_info})
 
 @app.route("/api/delete_folder/<process_id>", methods=["DELETE"])
