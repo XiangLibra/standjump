@@ -97,6 +97,7 @@
         <div style="margin-top:10px;">
             <button id="startRecordingBtn" onclick="startRecording()">開始錄影</button>
             <button id="stopRecordingBtn" onclick="stopRecording()" disabled>停止錄影</button>
+            <button id="toggleCameraBtn" onclick="toggleCamera()">切換鏡頭</button> <!-- 🔹新增切換鏡頭按鈕 -->
         </div>
     </div>
 
@@ -216,24 +217,39 @@
                 stopCamera();
             }
         }
-
+        // stream = null;
+        let currentFacingMode = "environment"; // 預設後鏡頭 (environment)
         async function startCamera() {
-            try {
-                stream = await navigator.mediaDevices.getUserMedia({ video: true, audio: true });
-                const videoEl = document.getElementById('liveVideo');
-                videoEl.srcObject = stream;
-            } catch (err) {
-                console.error('無法存取攝影機:', err);
-                alert('無法存取攝影機：' + err.message);
-            }
+        if (stream) {
+            stopCamera(); // 先關閉當前鏡頭
         }
 
+        try {
+            stream = await navigator.mediaDevices.getUserMedia({
+                video: {
+                    facingMode: currentFacingMode // 使用當前設定的前/後鏡頭
+                },
+                audio: true
+            });
+
+            const videoEl = document.getElementById('liveVideo');
+            videoEl.srcObject = stream;
+        } catch (err) {
+            console.error('無法存取攝影機:', err);
+            alert('無法存取攝影機：' + err.message);
+        }
+    }
         function stopCamera() {
             if (stream) {
                 stream.getTracks().forEach(track => track.stop());
                 stream = null;
             }
         }
+        function toggleCamera() {
+        // 切換前鏡頭 ⇄ 後鏡頭
+        currentFacingMode = (currentFacingMode === "user") ? "environment" : "user";
+        startCamera(); // 重新啟動相機
+    }
 
         function startRecording() {
             if (!stream) {
