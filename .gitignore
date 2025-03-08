@@ -25,6 +25,13 @@ share/python-wheels/
 .installed.cfg
 *.egg
 MANIFEST
+examples/
+uploads/
+output_csvs/
+results/
+temp_frames/
+poses_images_out/
+movenet_thunder.tflite
 
 # PyInstaller
 #  Usually these files are written by a python script from a template

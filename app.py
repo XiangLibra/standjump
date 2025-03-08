@@ -35,7 +35,9 @@ def images_to_video(image_folder, output_path, fps=2):
 
     frame0 = cv2.imread(os.path.join(image_folder, images[0]))
     height, width, _ = frame0.shape
-    fourcc = cv2.VideoWriter_fourcc(*'avc1')  # h264
+    # fourcc = cv2.VideoWriter_fourcc(*'avc1')  # h264
+    fourcc = cv2.VideoWriter_fourcc(*'XVID')
+
     out = cv2.VideoWriter(str(output_path), fourcc, fps, (width, height))
 
     for img_name in images:
