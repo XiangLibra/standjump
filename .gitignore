@@ -32,6 +32,9 @@ results/
 temp_frames/
 poses_images_out/
 movenet_thunder.tflite
+flat_pull_output_csvs/
+pull_back_output_csvs/
+pull_up_output_csvs/
 
 # PyInstaller
 #  Usually these files are written by a python script from a template
