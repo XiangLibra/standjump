@@ -1,5 +1,6 @@
 # main.py
 import os
+os.environ['CUDA_VISIBLE_DEVICES'] = '-1'  # 禁用所有 GPU 裝置
 import sys
 import shutil
 import cv2
